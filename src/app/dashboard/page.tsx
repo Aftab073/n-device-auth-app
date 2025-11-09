@@ -4,41 +4,49 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function DashboardPage() {
-  const [fullName, setFullName] = useState<string | null>(null)
+  const [user, setUser] = useState<any>(null)
   const [phone, setPhone] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      const savedName = localStorage.getItem('nd_fullName')
-      const savedPhone = localStorage.getItem('nd_phone')
-
-      if (!savedName && !savedPhone) {
+    fetch('/api/auth/me')
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Not logged in')
+        const data = await res.json()
+        if (!data.user) throw new Error('No user')
+        setUser(data.user)
+      })
+      .catch(() => {
         router.push('/login')
-        return
-      }
-
-      setFullName(savedName)
-      setPhone(savedPhone)
-      setLoading(false)
-    }, 200)
-
-    return () => clearTimeout(t)
+      })
+      .finally(() => {
+        const savedPhone = localStorage.getItem('nd_phone')
+        setPhone(savedPhone)
+        setLoading(false)
+      })
   }, [router])
 
   const handleLogout = () => {
+    localStorage.removeItem('nd_phone')
     localStorage.removeItem('nd_fullName')
     localStorage.removeItem('nd_email')
-    localStorage.removeItem('nd_phone')
-    router.push('/login')
+    router.push('/api/auth/logout')
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-start justify-center bg-slate-50 p-8">
-        <div className="w-full max-w-3xl bg-white p-8 rounded-lg shadow">
-          <p className="text-sm text-slate-500">Loading profile…</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-sm text-slate-600">Loading user info...</div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-sm text-slate-600">
+          Redirecting to login...
         </div>
       </div>
     )
@@ -48,7 +56,15 @@ export default function DashboardPage() {
     <div className="min-h-screen flex items-start justify-center bg-slate-50 p-8">
       <div className="w-full max-w-3xl bg-white p-8 rounded-lg shadow">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-semibold">Dashboard</h2>
+          <div>
+            <h2 className="text-2xl font-semibold">
+              Welcome, {user.name || 'User'}
+            </h2>
+            <p className="text-sm text-slate-600">Email: {user.email}</p>
+            <p className="text-sm text-slate-600">
+              Phone: {phone || 'Not provided'}
+            </p>
+          </div>
           <button
             onClick={handleLogout}
             className="px-3 py-1 border rounded hover:bg-slate-100 transition"
@@ -57,23 +73,11 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        <section className="mt-6 grid grid-cols-1 gap-4">
-          <div className="p-4 border rounded">
-            <h3 className="font-medium">Profile</h3>
-            <p className="text-sm text-slate-600">
-              Name: <span className="font-medium">{fullName ?? 'Not provided'}</span>
-            </p>
-            <p className="text-sm text-slate-600">
-              Phone: <span className="font-medium">{phone ?? 'Not provided'}</span>
-            </p>
-          </div>
-
-          <div className="p-4 border rounded">
-            <h3 className="font-medium">Sessions</h3>
-            <p className="text-sm text-slate-600">
-              Active sessions will show here
-            </p>
-          </div>
+        <section className="mt-6">
+          <h3 className="font-medium mb-2">Active Sessions</h3>
+          <p className="text-sm text-slate-600">
+            Device session tracking will appear here soon.
+          </p>
         </section>
       </div>
     </div>
