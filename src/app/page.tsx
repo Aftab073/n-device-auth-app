@@ -9,14 +9,12 @@ export default function Home() {
     const checkAuth = async () => {
       try {
         const res = await fetch('/api/auth/me')
-        // Some browsers return 204 No Content just after callback:
         if (!res.ok || res.status === 204) return
         const text = await res.text()
         if (!text) return
         const data = JSON.parse(text)
         if (data?.user) router.push('/dashboard')
       } catch {
-        /* ignore – means not logged in yet */
       }
     }
 

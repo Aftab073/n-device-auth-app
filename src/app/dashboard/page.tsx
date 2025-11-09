@@ -41,7 +41,6 @@ export default function DashboardPage() {
       const userObj = data.user || data
       console.log('User object:', userObj)
 
-      // ✅ Only proceed if email or name exists
       if (userObj && (userObj.email || userObj.name)) {
         setUser(userObj)
         const savedPhone = localStorage.getItem('nd_phone')
