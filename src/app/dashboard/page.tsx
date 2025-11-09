@@ -9,23 +9,59 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then(async (res) => {
-        if (!res.ok) throw new Error('Not logged in')
-        const data = await res.json()
-        if (!data.user) throw new Error('No user')
-        setUser(data.user)
-      })
-      .catch(() => {
+    useEffect(() => {
+  const loadUser = async () => {
+    try {
+      const res = await fetch('/api/auth/me')
+      const status = res.status
+      console.log('Auth status:', status)
+
+      if (status === 204) {
+        console.log('No session cookie — redirecting to login')
         router.push('/login')
-      })
-      .finally(() => {
+        return
+      }
+
+      const text = await res.text()
+      if (!text) {
+        console.log('Empty response body — redirecting')
+        router.push('/login')
+        return
+      }
+
+      let data
+      try {
+        data = JSON.parse(text)
+      } catch (err) {
+        console.error('Invalid JSON:', text)
+        router.push('/login')
+        return
+      }
+
+      const userObj = data.user || data
+      console.log('User object:', userObj)
+
+      // ✅ Only proceed if email or name exists
+      if (userObj && (userObj.email || userObj.name)) {
+        setUser(userObj)
         const savedPhone = localStorage.getItem('nd_phone')
         setPhone(savedPhone)
         setLoading(false)
-      })
-  }, [router])
+        return
+      }
+
+      console.log('No user info found — redirecting')
+      router.push('/login')
+    } catch (err) {
+      console.error('Auth check failed', err)
+      router.push('/login')
+    }
+  }
+
+  loadUser()
+}, [router])
+
+
 
   const handleLogout = () => {
     localStorage.removeItem('nd_phone')
