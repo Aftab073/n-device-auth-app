@@ -1,7 +1,26 @@
-// src/app/login/page.tsx
-import React from 'react'
+'use client'
+import React, {useState, useEffect} from 'react'
 
 export default function LoginPage() {
+
+  const [fullName, setFullName] = useState('')
+    const [email, setEmail] = useState('')
+    const [phone, setPhone] = useState('')
+
+    useEffect(() => {
+        setFullName(localStorage.getItem('nd_fullName') || '')
+        setEmail(localStorage.getItem('nd_email') || '')
+        setPhone(localStorage.getItem('nd_phone') || '')
+    }   , [])
+
+    const handleSave = () => {
+    localStorage.setItem('nd_fullName', fullName)
+    localStorage.setItem('nd_email', email)
+    localStorage.setItem('nd_phone', phone)
+  }
+
+
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <div className="w-full max-w-md bg-white p-8 rounded-lg shadow">
