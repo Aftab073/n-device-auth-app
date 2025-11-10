@@ -12,7 +12,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <h1 className="text-xl font-semibold">N-Device Auth Demo</h1>
             <div>
               <a href="/" className="mr-4">Home</a>
-              <a href="/login" className="px-3 py-1 rounded bg-sky-600 text-white">Login</a>
             </div>
           </nav>
           <main>{children}</main>

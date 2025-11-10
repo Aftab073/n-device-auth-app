@@ -55,6 +55,8 @@ export default function DashboardPage() {
     const list = await fetch('/api/sessions').then(r => r.json())
     setSessions(list)
     if (list.length <= 3) setShowModal(false)
+    alert('Device successfully logged out. You can now continue.')
+
   }
 
   if (loading) {
@@ -90,18 +92,22 @@ export default function DashboardPage() {
           <h3 className="font-medium mb-2">Active Devices</h3>
           <ul className="text-sm text-slate-700 space-y-1">
             {sessions.map((d) => (
-              <li key={d.deviceId} className="flex justify-between border-b py-1">
-                <span>
-                  {d.userAgent?.split('(')[0]} —{' '}
-                  {new Date(d.timestamp).toLocaleString()}
+              <li
+                key={d.deviceId}
+                className="flex justify-between items-center border-b last:border-0 py-2"
+              >
+                <span className="text-sm text-slate-700">
+                  {d.userAgent?.split('(')[0]} —{" "}
+                  {new Date(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
                 <button
                   onClick={() => handleForceLogout(d.deviceId)}
-                  className="text-red-500 hover:underline text-xs"
+                  className="text-xs text-red-600 hover:text-red-700 font-medium"
                 >
                   Force Logout
                 </button>
               </li>
+
             ))}
           </ul>
         </section>
@@ -109,40 +115,25 @@ export default function DashboardPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-xl w-96 shadow-lg">
-            <h2 className="text-lg font-semibold mb-3 text-center">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl w-96 shadow-lg border border-slate-200">
+            <h2 className="text-lg font-semibold text-center mb-3 text-slate-800">
               Device limit reached (3)
             </h2>
             <p className="text-sm text-slate-600 mb-4 text-center">
-              Please logout one of your active devices to continue.
+              Logout one of your active devices to continue.
             </p>
-            <div className="max-h-60 overflow-y-auto border-t border-b py-2 mb-3">
-              {sessions.map((d) => (
-                <div
-                  key={d.deviceId}
-                  className="flex justify-between items-center border-b last:border-0 px-1 py-1"
-                >
-                  <span className="text-xs text-slate-600 truncate">
-                    {d.userAgent}
-                  </span>
-                  <button
-                    onClick={() => handleForceLogout(d.deviceId)}
-                    className="text-red-500 text-xs hover:underline"
-                  >
-                    Logout
-                  </button>
-                </div>
-              ))}
-            </div>
+            {/* session list here */}
             <button
               onClick={() => setShowModal(false)}
-              className="w-full py-1 bg-slate-700 text-white rounded hover:bg-slate-600 text-sm"
+              className="w-full py-1.5 bg-slate-700 text-white rounded-lg mt-4 hover:bg-slate-600 text-sm"
             >
               Cancel
             </button>
           </div>
         </div>
+
+
       )}
     </div>
   )
