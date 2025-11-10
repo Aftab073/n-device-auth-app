@@ -7,89 +7,67 @@ export default function DashboardPage() {
   const [user, setUser] = useState<any>(null)
   const [phone, setPhone] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [sessions, setSessions] = useState<any[]>([])
+  const [showModal, setShowModal] = useState(false)
   const router = useRouter()
 
-    useEffect(() => {
-  const loadUser = async () => {
-    try {
-      const res = await fetch('/api/auth/me')
-      const status = res.status
-      console.log('Auth status:', status)
-
-      if (status === 204) {
-        console.log('No session cookie — redirecting to login')
-        router.push('/login')
-        return
-      }
-
-      const text = await res.text()
-      if (!text) {
-        console.log('Empty response body — redirecting')
-        router.push('/login')
-        return
-      }
-
-      let data
+  // --- Fetch Auth0 user + register device ---
+  useEffect(() => {
+    const loadUser = async () => {
       try {
-        data = JSON.parse(text)
-      } catch (err) {
-        console.error('Invalid JSON:', text)
-        router.push('/login')
-        return
-      }
-
-      const userObj = data.user || data
-      console.log('User object:', userObj)
-
-      if (userObj && (userObj.email || userObj.name)) {
+        const res = await fetch('/api/auth/me')
+        const text = await res.text()
+        if (!text || res.status === 204) return router.push('/login')
+        const data = JSON.parse(text)
+        const userObj = data.user || data
+        if (!userObj.email) return router.push('/login')
         setUser(userObj)
-        const savedPhone = localStorage.getItem('nd_phone')
-        setPhone(savedPhone)
+        setPhone(localStorage.getItem('nd_phone'))
         setLoading(false)
-        return
+
+        // try registering this device
+        const reg = await fetch('/api/sessions', { method: 'POST' })
+        const json = await reg.json()
+        if (reg.status === 409) {
+          // device limit reached
+          setSessions(json.devices || [])
+          setShowModal(true)
+        } else {
+          // normal, show current list
+          const list = await fetch('/api/sessions').then(r => r.json())
+          setSessions(list)
+        }
+      } catch (err) {
+        console.error(err)
+        router.push('/login')
       }
-
-      console.log('No user info found — redirecting')
-      router.push('/login')
-    } catch (err) {
-      console.error('Auth check failed', err)
-      router.push('/login')
     }
-  }
-
-  loadUser()
-}, [router])
-
-
+    loadUser()
+  }, [router])
 
   const handleLogout = () => {
-    localStorage.removeItem('nd_phone')
-    localStorage.removeItem('nd_fullName')
-    localStorage.removeItem('nd_email')
+    localStorage.clear()
     router.push('/api/auth/logout')
+  }
+
+  const handleForceLogout = async (deviceId: string) => {
+    await fetch(`/api/sessions?deviceId=${deviceId}`, { method: 'DELETE' })
+    const list = await fetch('/api/sessions').then(r => r.json())
+    setSessions(list)
+    if (list.length <= 3) setShowModal(false)
   }
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-sm text-slate-600">Loading user info...</div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-sm text-slate-600">
-          Redirecting to login...
-        </div>
+        <div className="text-slate-600 text-sm">Loading user info...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-start justify-center bg-slate-50 p-8">
-      <div className="w-full max-w-3xl bg-white p-8 rounded-lg shadow">
+    <div className="min-h-screen flex flex-col items-center bg-slate-50 p-8">
+      <div className="w-full max-w-3xl bg-white p-8 rounded-xl shadow">
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-2xl font-semibold">
@@ -109,12 +87,63 @@ export default function DashboardPage() {
         </div>
 
         <section className="mt-6">
-          <h3 className="font-medium mb-2">Active Sessions</h3>
-          <p className="text-sm text-slate-600">
-            Device session tracking will appear here soon.
-          </p>
+          <h3 className="font-medium mb-2">Active Devices</h3>
+          <ul className="text-sm text-slate-700 space-y-1">
+            {sessions.map((d) => (
+              <li key={d.deviceId} className="flex justify-between border-b py-1">
+                <span>
+                  {d.userAgent?.split('(')[0]} —{' '}
+                  {new Date(d.timestamp).toLocaleString()}
+                </span>
+                <button
+                  onClick={() => handleForceLogout(d.deviceId)}
+                  className="text-red-500 hover:underline text-xs"
+                >
+                  Force Logout
+                </button>
+              </li>
+            ))}
+          </ul>
         </section>
       </div>
+
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl w-96 shadow-lg">
+            <h2 className="text-lg font-semibold mb-3 text-center">
+              Device limit reached (3)
+            </h2>
+            <p className="text-sm text-slate-600 mb-4 text-center">
+              Please logout one of your active devices to continue.
+            </p>
+            <div className="max-h-60 overflow-y-auto border-t border-b py-2 mb-3">
+              {sessions.map((d) => (
+                <div
+                  key={d.deviceId}
+                  className="flex justify-between items-center border-b last:border-0 px-1 py-1"
+                >
+                  <span className="text-xs text-slate-600 truncate">
+                    {d.userAgent}
+                  </span>
+                  <button
+                    onClick={() => handleForceLogout(d.deviceId)}
+                    className="text-red-500 text-xs hover:underline"
+                  >
+                    Logout
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowModal(false)}
+              className="w-full py-1 bg-slate-700 text-white rounded hover:bg-slate-600 text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

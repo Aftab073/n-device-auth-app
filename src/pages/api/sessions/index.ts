@@ -12,13 +12,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
 
-  const email = session.user.email
+  const email = session.user.email.toLowerCase()
   const key = `sessions:${email}`
+  console.log('🧩 Using Redis key:', key)
+
 
   try {
     if (req.method === 'GET') {
       const devices = (await redis.lrange(key, 0, -1)) as string[]
-      const parsed = devices.map((d) => JSON.parse(d))
+      const parsed = devices
+        .map((d) => {
+          try {
+            return typeof d === 'string' ? JSON.parse(d) : d
+          } catch {
+            return null
+          }
+        })
+        .filter(Boolean)
       res.status(200).json(parsed)
       return
     }
@@ -31,17 +41,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         email,
         userAgent,
         timestamp: Date.now(),
+
       }
 
       const devices = (await redis.lrange(key, 0, -1)) as string[]
-      if (devices.length >= MAX_DEVICES) {
-        return res
-          .status(409)
-          .json({ error: `Device limit reached (${MAX_DEVICES}).`, devices: devices.map((d) => JSON.parse(d)) })
+
+      // Clean parse only valid JSON strings
+      const validDevices = devices
+        .map((d) => {
+          try {
+            return typeof d === 'string' ? JSON.parse(d) : d
+          } catch {
+            return null
+          }
+        })
+        .filter(Boolean)
+
+      if (validDevices.length >= MAX_DEVICES) {
+        return res.status(409).json({
+          error: `Device limit reached (${MAX_DEVICES}).`,
+          devices: validDevices,
+        })
       }
 
+      // Always stringify before storing
       await redis.lpush(key, JSON.stringify(newDevice))
       await redis.ltrim(key, 0, MAX_DEVICES - 1)
+
+      const saved = await redis.lrange(key, 0, -1)
+      console.log('✅ Redis saved devices:', saved)
       res.status(201).json(newDevice)
       return
     }
@@ -54,9 +82,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const devices = (await redis.lrange(key, 0, -1)) as string[]
-      const filtered = devices.filter((d) => JSON.parse(d).deviceId !== deviceId)
+      const filtered = devices.filter((d) => {
+        try {
+          const parsed = typeof d === 'string' ? JSON.parse(d) : d
+          return parsed.deviceId !== deviceId
+        } catch {
+          return false
+        }
+      })
       await redis.del(key)
-      if (filtered.length) await redis.lpush(key, ...filtered)
+      if (filtered.length) {
+        await redis.lpush(key, ...filtered.map((f) => JSON.stringify(f)))
+      }
+
       res.status(200).json({ success: true })
       return
     }
