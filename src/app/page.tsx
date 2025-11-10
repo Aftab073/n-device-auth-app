@@ -26,7 +26,7 @@ export default function Home() {
           href="/api/auth/login?screen_hint=signup"
           className="px-5 py-2.5 bg-slate-200 text-slate-800 rounded-lg shadow hover:bg-slate-300 transition text-sm font-medium"
         >
-          Register
+          Sign Up
         </a>
       </div>
 
