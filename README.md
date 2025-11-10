@@ -1,36 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🔐 N-Device Auth Demo
 
-## Getting Started
+A mini web app built with **Next.js**, **Auth0**, and **Upstash Redis**  
+that limits concurrent logins to **N = 3 devices** per account.  
+If a user logs in from a 4th device, they must log out one of the existing sessions.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🚀 Live Demo
+👉 [https://your-vercel-app.vercel.app](https://your-vercel-app.vercel.app)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+*(Replace with your deployed URL)*
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🧠 Features
 
-## Learn More
+✅ **Auth0 Authentication** — Secure login and logout with user profile.  
+✅ **Session Tracking** — Each login stores device details (ID, browser, timestamp).  
+✅ **Concurrent Device Limit (N=3)** — Only 3 devices can stay logged in at once.  
+✅ **Force Logout Modal** — Lets user remove an old device gracefully.  
+✅ **Redis Backend (Upstash)** — Fast, serverless, free-tier datastore.  
+✅ **Professional UI** — Responsive, minimal Tailwind design.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🧰 Tech Stack
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Category | Technology |
+|-----------|-------------|
+| Frontend | Next.js 15 + TypeScript |
+| Styling | Tailwind CSS |
+| Auth | Auth0 |
+| Database | Upstash Redis (REST API) |
+| Deployment | Vercel |
+| State Management | React Hooks |
+| Device Tracking | LocalStorage + Redis |
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🧩 System Design Overview
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Flow:**
+
+1. User logs in via Auth0.  
+2. Frontend checks/stores a stable `deviceId` in `localStorage`.  
+3. `/api/sessions` POST → registers device in Redis using email key (`sessions:user@email`).  
+4. If 3 devices already active → returns **409 Conflict**.  
+5. UI displays modal → user can “Force Logout” an older device.  
+6. Redis updates automatically and removes the old session.  
+
+---
+
+## 📂 Folder Structure
+
+src/
+├─ app/
+│ ├─ page.tsx # Public landing page
+│ ├─ login/page.tsx # Login form
+│ └─ dashboard/page.tsx # Protected dashboard (after login)
+│
+├─ pages/api/
+│ ├─ auth/[...auth0].ts # Auth0 SDK routes
+│ └─ sessions/index.ts # Redis-based session management
+│
+└─ lib/
+└─ redis.ts # Upstash Redis config
+
+
+---
+
+## ⚙️ Environment Variables
+
+Add these in both **`.env.local`** (for local dev) and Vercel project settings:
+
+AUTH0_SECRET=your_auth0_secret
+AUTH0_BASE_URL=https://your-vercel-app.vercel.app
+
+AUTH0_ISSUER_BASE_URL=https://your-tenant.auth0.com
+
+AUTH0_CLIENT_ID=your_auth0_client_id
+AUTH0_CLIENT_SECRET=your_auth0_client_secret
+
+UPSTASH_REDIS_REST_URL=https://your-upstash-url.upstash.io
+
+UPSTASH_REDIS_REST_TOKEN=your_upstash_token
