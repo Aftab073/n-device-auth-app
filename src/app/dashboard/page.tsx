@@ -11,7 +11,15 @@ export default function DashboardPage() {
   const [showModal, setShowModal] = useState(false)
   const router = useRouter()
 
-  // --- Fetch Auth0 user + register device ---
+  let deviceId: string | null = null
+  if (typeof window !== 'undefined') {
+    deviceId = localStorage.getItem('deviceId')
+    if (!deviceId) {
+      deviceId = crypto.randomUUID()
+      localStorage.setItem('deviceId', deviceId)
+    }
+  }
+
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -25,16 +33,18 @@ export default function DashboardPage() {
         setPhone(localStorage.getItem('nd_phone'))
         setLoading(false)
 
-        // try registering this device
-        const reg = await fetch('/api/sessions', { method: 'POST' })
+        const reg = await fetch('/api/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceId }),
+        })
         const json = await reg.json()
+
         if (reg.status === 409) {
-          // device limit reached
           setSessions(json.devices || [])
           setShowModal(true)
         } else {
-          // normal, show current list
-          const list = await fetch('/api/sessions').then(r => r.json())
+          const list = await fetch('/api/sessions').then((r) => r.json())
           setSessions(list)
         }
       } catch (err) {
@@ -52,11 +62,9 @@ export default function DashboardPage() {
 
   const handleForceLogout = async (deviceId: string) => {
     await fetch(`/api/sessions?deviceId=${deviceId}`, { method: 'DELETE' })
-    const list = await fetch('/api/sessions').then(r => r.json())
+    const list = await fetch('/api/sessions').then((r) => r.json())
     setSessions(list)
     if (list.length <= 3) setShowModal(false)
-    alert('Device successfully logged out. You can now continue.')
-
   }
 
   if (loading) {
@@ -94,20 +102,19 @@ export default function DashboardPage() {
             {sessions.map((d) => (
               <li
                 key={d.deviceId}
-                className="flex justify-between items-center border-b last:border-0 py-2"
+                className="flex justify-between border-b py-1 items-center"
               >
-                <span className="text-sm text-slate-700">
-                  {d.userAgent?.split('(')[0]} —{" "}
-                  {new Date(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                <span>
+                  {d.userAgent?.split('(')[0]} —{' '}
+                  {new Date(d.timestamp).toLocaleString()}
                 </span>
                 <button
                   onClick={() => handleForceLogout(d.deviceId)}
-                  className="text-xs text-red-600 hover:text-red-700 font-medium"
+                  className="text-red-500 hover:underline text-xs"
                 >
                   Force Logout
                 </button>
               </li>
-
             ))}
           </ul>
         </section>
@@ -115,25 +122,40 @@ export default function DashboardPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-white p-6 rounded-xl w-96 shadow-lg border border-slate-200">
-            <h2 className="text-lg font-semibold text-center mb-3 text-slate-800">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl w-96 shadow-lg">
+            <h2 className="text-lg font-semibold mb-3 text-center text-slate-800">
               Device limit reached (3)
             </h2>
             <p className="text-sm text-slate-600 mb-4 text-center">
-              Logout one of your active devices to continue.
+              Please logout one of your active devices to continue.
             </p>
-            {/* session list here */}
+            <div className="max-h-60 overflow-y-auto border-t border-b py-2 mb-3">
+              {sessions.map((d) => (
+                <div
+                  key={d.deviceId}
+                  className="flex justify-between items-center border-b last:border-0 px-1 py-1"
+                >
+                  <span className="text-xs text-slate-600 truncate">
+                    {d.userAgent}
+                  </span>
+                  <button
+                    onClick={() => handleForceLogout(d.deviceId)}
+                    className="text-red-500 text-xs hover:underline"
+                  >
+                    Logout
+                  </button>
+                </div>
+              ))}
+            </div>
             <button
               onClick={() => setShowModal(false)}
-              className="w-full py-1.5 bg-slate-700 text-white rounded-lg mt-4 hover:bg-slate-600 text-sm"
+              className="w-full py-1 bg-slate-700 text-white rounded hover:bg-slate-600 text-sm"
             >
               Cancel
             </button>
           </div>
         </div>
-
-
       )}
     </div>
   )

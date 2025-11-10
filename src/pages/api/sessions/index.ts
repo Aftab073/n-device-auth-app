@@ -16,7 +16,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const key = `sessions:${email}`
   console.log('🧩 Using Redis key:', key)
 
-
   try {
     if (req.method === 'GET') {
       const devices = (await redis.lrange(key, 0, -1)) as string[]
@@ -34,19 +33,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (req.method === 'POST') {
-      const deviceId = uuidv4()
+      const body = await req.body
+      const parsedBody = typeof body === 'string' ? JSON.parse(body) : body
+      const incomingDeviceId = parsedBody?.deviceId || uuidv4()
       const userAgent = req.headers['user-agent'] || 'Unknown'
+
       const newDevice = {
-        deviceId,
+        deviceId: incomingDeviceId,
         email,
         userAgent,
         timestamp: Date.now(),
-
       }
 
       const devices = (await redis.lrange(key, 0, -1)) as string[]
-
-      // Clean parse only valid JSON strings
       const validDevices = devices
         .map((d) => {
           try {
@@ -57,6 +56,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
         .filter(Boolean)
 
+      const existingDevice = validDevices.find(
+        (d: any) => d.deviceId === incomingDeviceId
+      )
+      if (existingDevice) {
+        existingDevice.timestamp = Date.now()
+        await redis.del(key)
+        await redis.lpush(
+          key,
+          ...validDevices.map((f) => JSON.stringify(f))
+        )
+        console.log('🔁 Existing device updated:', existingDevice.deviceId)
+        res.status(200).json(existingDevice)
+        return
+      }
+
       if (validDevices.length >= MAX_DEVICES) {
         return res.status(409).json({
           error: `Device limit reached (${MAX_DEVICES}).`,
@@ -64,7 +78,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         })
       }
 
-      // Always stringify before storing
       await redis.lpush(key, JSON.stringify(newDevice))
       await redis.ltrim(key, 0, MAX_DEVICES - 1)
 
@@ -90,19 +103,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return false
         }
       })
+
       await redis.del(key)
       if (filtered.length) {
         await redis.lpush(key, ...filtered.map((f) => JSON.stringify(f)))
       }
 
+      console.log('🗑️ Device removed:', deviceId)
       res.status(200).json({ success: true })
       return
     }
 
+   
     res.setHeader('Allow', ['GET', 'POST', 'DELETE'])
     res.status(405).end(`Method ${req.method} Not Allowed`)
   } catch (err: any) {
     console.error('Redis error:', err)
-    res.status(500).json({ error: 'Internal Server Error' })
+    res.status(500).json({ error: 'Internal Server Error', details: err.message })
   }
 }
